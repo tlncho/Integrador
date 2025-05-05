@@ -1,28 +1,5 @@
-// Datos del juego (pueden provenir de la API o de un archivo estático para test)
-const preguntas = [
-  {
-    tipo: "capital",
-    pregunta: "¿Cuál es el país de la siguiente ciudad capital?",
-    ciudad: "Buenos Aires",
-    opciones: ["Argentina", "Chile", "Brasil", "Perú"],
-    respuestaCorrecta: "Argentina"
-  },
-  {
-    tipo: "bandera",
-    pregunta: "El país representado por esta bandera es:",
-    bandera: "🇫🇷",
-    opciones: ["Francia", "Italia", "España", "Alemania"],
-    respuestaCorrecta: "Francia"
-  },
-  {
-    tipo: "limite",
-    pregunta: "¿Cuántos países limítrofes tiene el siguiente país?",
-    pais: "México",
-    opciones: [2, 3, 4, 5],
-    respuestaCorrecta: 4
-  }
-];
-
+let paises = [];
+let preguntas = [];
 let indicePregunta = 0;
 let respuestasCorrectas = 0;
 let respuestasIncorrectas = 0;
@@ -44,18 +21,103 @@ const btnReiniciar = document.getElementById("btn-reiniciar");
 const formRanking = document.getElementById("form-ranking");
 const listaRanking = document.getElementById("lista-ranking");
 
-// Función para mostrar la siguiente pregunta
-const mostrarPregunta = () => {
-  // Reseteamos el feedback de la pregunta anterior
-  feedback.textContent = "";
+// Obtener países desde la API
+const obtenerPaises = async () => {
+  try {
+    const response = await fetch('https://restcountries.com/v3.1/all');
+    const data = await response.json();
+    paises = data.filter(p => p.name && p.name.common); // Validamos nombre
+    generarPreguntas();
+  } catch (error) {
+    console.error('Error al obtener los países:', error);
+  }
+};
 
-  // Mostramos la pregunta y las opciones
+// Generar preguntas con opciones válidas
+const generarPreguntas = () => {
+  preguntas = [];
+
+  for (let i = 0; i < 10; i++) {
+    const pais = paises[Math.floor(Math.random() * paises.length)];
+
+    // Pregunta sobre capital
+    if (pais.capital && pais.capital[0]) {
+      preguntas.push({
+        tipo: 'capital',
+        pregunta: `¿Cuál es el país de la siguiente ciudad capital?`,
+        ciudad: pais.capital[0],
+        opciones: obtenerOpciones(pais.name.common),
+        respuestaCorrecta: pais.name.common
+      });
+    }
+
+    // Pregunta sobre bandera
+    if (pais.flags && pais.flags.svg) {
+      preguntas.push({
+        tipo: 'bandera',
+        pregunta: `El país representado por esta bandera es:`,
+        bandera: pais.flags.svg,
+        opciones: obtenerOpciones(pais.name.common),
+        respuestaCorrecta: pais.name.common
+      });
+    }
+
+    // Pregunta sobre países limítrofes
+    if (Array.isArray(pais.borders)) {
+      preguntas.push({
+        tipo: 'limite',
+        pregunta: `¿Cuántos países limítrofes tiene ${pais.name.common}?`,
+        pais: pais.name.common,
+        opciones: generarOpcionesLimite(pais.borders.length),
+        respuestaCorrecta: pais.borders.length
+      });
+    }
+  }
+
+  mostrarPregunta();
+};
+
+// Generar opciones incluyendo la correcta y sin duplicados
+const obtenerOpciones = (respuestaCorrecta) => {
+  const opciones = new Set();
+  opciones.add(respuestaCorrecta);
+
+  while (opciones.size < 4) {
+    const paisAleatorio = paises[Math.floor(Math.random() * paises.length)].name.common;
+    if (paisAleatorio && paisAleatorio !== respuestaCorrecta) {
+      opciones.add(paisAleatorio);
+    }
+  }
+
+  return Array.from(opciones).sort(() => Math.random() - 0.5);
+};
+
+// Opciones para preguntas de cantidad de fronteras
+const generarOpcionesLimite = (correcta) => {
+  const opciones = new Set();
+  opciones.add(correcta);
+  while (opciones.size < 4) {
+    const num = Math.floor(Math.random() * 6) + 1;
+    if (num !== correcta) {
+      opciones.add(num);
+    }
+  }
+  return Array.from(opciones).sort(() => Math.random() - 0.5);
+};
+
+// Mostrar la pregunta actual
+const mostrarPregunta = () => {
+  feedback.textContent = "";
   const pregunta = preguntas[indicePregunta];
   preguntaDiv.textContent = pregunta.pregunta;
+  opcionesDiv.innerHTML = "";
 
-  opcionesDiv.innerHTML = ""; // Limpiamos las opciones anteriores
+  if (pregunta.tipo === "capital") {
+    preguntaDiv.textContent = `${pregunta.pregunta} ${pregunta.ciudad}`;
+  } else if (pregunta.tipo === "bandera") {
+    preguntaDiv.innerHTML = `${pregunta.pregunta} <img src="${pregunta.bandera}" alt="Bandera" width="50" />`;
+  }
 
-  // Mostramos las opciones de la pregunta actual
   pregunta.opciones.forEach(opcion => {
     const btnOpcion = document.createElement("button");
     btnOpcion.textContent = opcion;
@@ -63,17 +125,15 @@ const mostrarPregunta = () => {
     opcionesDiv.appendChild(btnOpcion);
   });
 
-  // Iniciar el temporizador
   if (indicePregunta === 0) {
     tiempoInicio = Date.now();
   }
 
-  // Ocultamos pantalla de inicio y mostramos la pregunta
   pantallaInicio.classList.add("oculto");
   pantallaPregunta.classList.remove("oculto");
 };
 
-// Función para verificar la respuesta
+// Verificar si la respuesta es correcta
 const verificarRespuesta = (respuesta, correcta) => {
   if (respuesta === correcta) {
     feedback.textContent = "¡Correcto!";
@@ -85,23 +145,16 @@ const verificarRespuesta = (respuesta, correcta) => {
     respuestasIncorrectas++;
   }
 
-  // Detenemos el temporizador y calculamos el tiempo total
   tiempoTotal = Date.now() - tiempoInicio;
-
-  // Mostramos el botón de siguiente pregunta
   btnSiguiente.classList.remove("oculto");
 };
 
-// Función para pasar a la siguiente pregunta
+// Siguiente pregunta o pantalla final
 const siguientePregunta = () => {
-  // Reseteamos la pantalla de feedback y ocultamos el botón de siguiente
   feedback.textContent = "";
   btnSiguiente.classList.add("oculto");
-
-  // Aumentamos el índice de la pregunta actual
   indicePregunta++;
 
-  // Si ya no hay más preguntas, mostramos la pantalla final
   if (indicePregunta < preguntas.length) {
     mostrarPregunta();
   } else {
@@ -109,12 +162,10 @@ const siguientePregunta = () => {
   }
 };
 
-// Función para mostrar la pantalla final con el resumen
+// Mostrar resultados finales
 const mostrarPantallaFinal = () => {
-  // Calcular tiempo promedio por pregunta
   const tiempoPromedio = tiempoTotal / preguntas.length / 1000;
 
-  // Mostrar resumen de resultados
   resumen.innerHTML = `
     Respuestas Correctas: ${respuestasCorrectas}<br>
     Respuestas Incorrectas: ${respuestasIncorrectas}<br>
@@ -122,27 +173,23 @@ const mostrarPantallaFinal = () => {
     Tiempo Promedio por Pregunta: ${tiempoPromedio.toFixed(2)} segundos
   `;
 
-  // Ocultamos la pantalla de pregunta y mostramos la final
   pantallaPregunta.classList.add("oculto");
   pantallaFinal.classList.remove("oculto");
 };
 
-// Función para guardar el ranking
+// Guardar en ranking
 const guardarRanking = (e) => {
   e.preventDefault();
-
   const nombre = document.getElementById("nombre").value;
 
-  // Guardamos la partida en el ranking (aquí usarías una API o base de datos real)
   const partida = {
     nombre,
-    puntaje: respuestasCorrectas * 10, // Ejemplo: 10 puntos por respuesta correcta
+    puntaje: respuestasCorrectas * 10,
     tiempoTotal,
     respuestasCorrectas,
     respuestasIncorrectas
   };
 
-  // Enviar a la API o base de datos
   fetch('/api/partidas', {
     method: 'POST',
     headers: {
@@ -152,7 +199,6 @@ const guardarRanking = (e) => {
   })
   .then(response => response.json())
   .then(() => {
-    // Mostrar ranking
     mostrarRanking();
   })
   .catch(error => {
@@ -160,7 +206,7 @@ const guardarRanking = (e) => {
   });
 };
 
-// Función para mostrar el ranking
+// Mostrar ranking
 const mostrarRanking = () => {
   fetch('/api/ranking')
     .then(response => response.json())
@@ -172,14 +218,13 @@ const mostrarRanking = () => {
         listaRanking.appendChild(li);
       });
 
-      // Mostrar la pantalla de ranking
       pantallaFinal.classList.add("oculto");
       pantallaRanking.classList.remove("oculto");
     });
 };
 
-// Inicialización
-btnJugar.addEventListener('click', mostrarPregunta);
+// Eventos
+btnJugar.addEventListener('click', obtenerPaises);
 btnSiguiente.addEventListener('click', siguientePregunta);
 btnReiniciar.addEventListener('click', () => window.location.reload());
 formRanking.addEventListener('submit', guardarRanking);

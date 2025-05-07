@@ -1,59 +1,38 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const port = 3000;
 
-app.use(bodyParser.json());
-app.use(express.static('public'));  // Sirve los archivos estáticos (HTML, CSS, JS)
+// Middleware para parsear JSON y servir archivos estáticos
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
 
-/* Datos de prueba para el ranking */
-let ranking = [];
-
-// Cargar el ranking desde un archivo (o base de datos en producción)
-const cargarRanking = () => {
-  const archivoRanking = './ranking.json'; // Ruta directa
-  if (fs.existsSync(archivoRanking)) {
-    const datos = fs.readFileSync(archivoRanking);
-    ranking = JSON.parse(datos);
-  }
-};
-
-// Guardar el ranking en un archivo
-const guardarRanking = () => {
-  const archivoRanking = './ranking.json'; // Ruta directa
-  fs.writeFileSync(archivoRanking, JSON.stringify(ranking, null, 2));
-};
-
-// Ruta para obtener el ranking
-app.get('/api/ranking', (req, res) => {
-  cargarRanking(); // Cargar el ranking actual
-  // Ordenar el ranking por puntaje de mayor a menor
-  ranking.sort((a, b) => b.puntaje - a.puntaje);
-  res.json(ranking.slice(0, 20)); // Retornar los 20 mejores
-});
-
-// Ruta para guardar una nueva partida en el ranking
+// Ruta POST para guardar partidas
 app.post('/api/partidas', (req, res) => {
-  const { nombre, puntaje, tiempoTotal, respuestasCorrectas, respuestasIncorrectas } = req.body;
+  const dataPath = path.join(__dirname, 'db.json'); 
+  let db;
 
-  // Añadir la nueva partida al ranking
-  const nuevaPartida = {
-    nombre,
-    puntaje,
-    tiempoTotal,
-    respuestasCorrectas,
-    respuestasIncorrectas
-  };
+  try {
+    db = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+  } catch (err) {
+    db = { partidas: [] };
+  }
 
-  ranking.push(nuevaPartida);
-  guardarRanking(); // Guardar el ranking actualizado
+  const nuevaPartida = req.body;
+  db.partidas.push(nuevaPartida);
 
-  res.status(201).json({ mensaje: 'Partida guardada correctamente' });
+  try {
+    fs.writeFileSync(dataPath, JSON.stringify(db, null, 2));
+    res.status(201).json(nuevaPartida);
+  } catch (err) {
+    console.error('Error al guardar la partida:', err);
+    res.status(500).json({ error: 'No se pudo guardar la partida' });
+  }
 });
 
-// Iniciar el servidor
+// Iniciar servidor
 app.listen(port, () => {
-  console.log(`Servidor en funcionamiento en http://localhost:${port}`);
+  console.log(`Servidor corriendo en http://localhost:${port}`);
 });

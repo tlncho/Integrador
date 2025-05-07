@@ -13,13 +13,14 @@
     <section id="pantalla-inicio">
       <button id="btn-jugar">Comenzar Juego</button>
     </section>
-
     <section id="pantalla-pregunta" class="oculto">
       <div id="pregunta"></div>
+      <div id="temporizador" class="temporizador"></div>
       <div id="opciones" class="opciones"></div>
       <div id="feedback" class="feedback"></div>
       <button id="btn-siguiente" class="oculto">Siguiente Pregunta</button>
     </section>
+    
 
     <section id="pantalla-final" class="oculto">
       <h2>¡Juego Terminado!</h2>
@@ -37,7 +38,10 @@
       <ol id="lista-ranking"></ol>
     </section>
   </main>
-
+  <form id="form-ranking" class="oculto">
+    <input type="text" id="nombre" placeholder="Tu nombre" required />
+    <button type="submit">Guardar en el ranking</button>
+  </form>
   <script src="script.js"></script>
 </body>
 </html>

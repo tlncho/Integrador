@@ -5,8 +5,8 @@ let respuestasCorrectas = 0;
 let respuestasIncorrectas = 0;
 let tiempoInicio;
 let tiempoTotal = 0;
+let tiempoRestante;
 
-// Elementos del DOM
 const pantallaInicio = document.getElementById("pantalla-inicio");
 const pantallaPregunta = document.getElementById("pantalla-pregunta");
 const pantallaFinal = document.getElementById("pantalla-final");
@@ -20,27 +20,26 @@ const resumen = document.getElementById("resumen");
 const btnReiniciar = document.getElementById("btn-reiniciar");
 const formRanking = document.getElementById("form-ranking");
 const listaRanking = document.getElementById("lista-ranking");
+const temporizadorDiv = document.getElementById("temporizador");
 
-// Obtener países desde la API
 const obtenerPaises = async () => {
   try {
+    console.log('Obteniendo países...');
     const response = await fetch('https://restcountries.com/v3.1/all');
     const data = await response.json();
-    paises = data.filter(p => p.name && p.name.common); // Validamos nombre
+    paises = data.filter(p => p.name && p.name.common);
     generarPreguntas();
   } catch (error) {
     console.error('Error al obtener los países:', error);
   }
 };
 
-// Generar preguntas con opciones válidas
 const generarPreguntas = () => {
   preguntas = [];
 
-  for (let i = 0; i < 10; i++) {
+  while (preguntas.length < 10) {
     const pais = paises[Math.floor(Math.random() * paises.length)];
 
-    // Pregunta sobre capital
     if (pais.capital && pais.capital[0]) {
       preguntas.push({
         tipo: 'capital',
@@ -51,7 +50,6 @@ const generarPreguntas = () => {
       });
     }
 
-    // Pregunta sobre bandera
     if (pais.flags && pais.flags.svg) {
       preguntas.push({
         tipo: 'bandera',
@@ -62,7 +60,6 @@ const generarPreguntas = () => {
       });
     }
 
-    // Pregunta sobre países limítrofes
     if (Array.isArray(pais.borders)) {
       preguntas.push({
         tipo: 'limite',
@@ -74,10 +71,11 @@ const generarPreguntas = () => {
     }
   }
 
+  preguntas = preguntas.slice(0, 10);
+  console.log('Preguntas generadas:', preguntas);
   mostrarPregunta();
 };
 
-// Generar opciones incluyendo la correcta y sin duplicados
 const obtenerOpciones = (respuestaCorrecta) => {
   const opciones = new Set();
   opciones.add(respuestaCorrecta);
@@ -92,7 +90,6 @@ const obtenerOpciones = (respuestaCorrecta) => {
   return Array.from(opciones).sort(() => Math.random() - 0.5);
 };
 
-// Opciones para preguntas de cantidad de fronteras
 const generarOpcionesLimite = (correcta) => {
   const opciones = new Set();
   opciones.add(correcta);
@@ -105,7 +102,6 @@ const generarOpcionesLimite = (correcta) => {
   return Array.from(opciones).sort(() => Math.random() - 0.5);
 };
 
-// Mostrar la pregunta actual
 const mostrarPregunta = () => {
   feedback.textContent = "";
   const pregunta = preguntas[indicePregunta];
@@ -127,13 +123,31 @@ const mostrarPregunta = () => {
 
   if (indicePregunta === 0) {
     tiempoInicio = Date.now();
+    mostrarTemporizador();
   }
 
   pantallaInicio.classList.add("oculto");
   pantallaPregunta.classList.remove("oculto");
 };
 
-// Verificar si la respuesta es correcta
+const mostrarTemporizador = () => {
+  tiempoRestante = 30;
+  temporizadorDiv.textContent = `Tiempo restante: ${tiempoRestante} segundos`;
+
+  const intervalo = setInterval(() => {
+    tiempoRestante--;
+    temporizadorDiv.textContent = `Tiempo restante: ${tiempoRestante} segundos`;
+
+    if (tiempoRestante <= 0) {
+      clearInterval(intervalo);
+      feedback.textContent = "¡Tiempo agotado!";
+      feedback.style.color = "red";
+      respuestasIncorrectas++;
+      btnSiguiente.classList.remove("oculto");
+    }
+  }, 1000);
+};
+
 const verificarRespuesta = (respuesta, correcta) => {
   if (respuesta === correcta) {
     feedback.textContent = "¡Correcto!";
@@ -149,7 +163,6 @@ const verificarRespuesta = (respuesta, correcta) => {
   btnSiguiente.classList.remove("oculto");
 };
 
-// Siguiente pregunta o pantalla final
 const siguientePregunta = () => {
   feedback.textContent = "";
   btnSiguiente.classList.add("oculto");
@@ -162,7 +175,6 @@ const siguientePregunta = () => {
   }
 };
 
-// Mostrar resultados finales
 const mostrarPantallaFinal = () => {
   const tiempoPromedio = tiempoTotal / preguntas.length / 1000;
 
@@ -175,9 +187,9 @@ const mostrarPantallaFinal = () => {
 
   pantallaPregunta.classList.add("oculto");
   pantallaFinal.classList.remove("oculto");
+  formRanking.classList.remove("oculto");
 };
 
-// Guardar en ranking
 const guardarRanking = (e) => {
   e.preventDefault();
   const nombre = document.getElementById("nombre").value;
@@ -190,28 +202,28 @@ const guardarRanking = (e) => {
     respuestasIncorrectas
   };
 
-  fetch('/api/partidas', {
+  fetch('http://localhost:3000/api/partidas', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(partida)
   })
-  .then(response => response.json())
-  .then(() => {
-    mostrarRanking();
-  })
-  .catch(error => {
-    console.error('Error al guardar la partida:', error);
-  });
+    .then(response => response.json())
+    .then(() => {
+      mostrarRanking();
+    })
+    .catch(error => {
+      console.error('Error al guardar la partida:', error);
+    });
 };
 
-// Mostrar ranking
 const mostrarRanking = () => {
-  fetch('/api/ranking')
+  fetch('http://localhost:3000/api/partidas')
     .then(response => response.json())
     .then(data => {
       listaRanking.innerHTML = '';
+      data.sort((a, b) => b.puntaje - a.puntaje); 
       data.forEach((jugador, index) => {
         const li = document.createElement("li");
         li.textContent = `${index + 1}. ${jugador.nombre} - ${jugador.puntaje} puntos`;
@@ -223,7 +235,6 @@ const mostrarRanking = () => {
     });
 };
 
-// Eventos
 btnJugar.addEventListener('click', obtenerPaises);
 btnSiguiente.addEventListener('click', siguientePregunta);
 btnReiniciar.addEventListener('click', () => window.location.reload());

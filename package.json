@@ -2,7 +2,6 @@
   "name": "integrador",
   "version": "1.0.0",
   "main": "server.js",
-  
   "scripts": {
     "dev": "nodemon data/server.js"
   },
@@ -10,6 +9,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "express": "^5.1.0"
   },
